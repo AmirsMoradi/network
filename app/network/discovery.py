@@ -62,23 +62,33 @@ class HostDiscoveryService:
                 return result
 
         results = await asyncio.gather(*(run_one(ip) for ip in hosts))
+        if cancel_event is not None and cancel_event.is_set():
+            return []
+
         arp = await asyncio.to_thread(self._read_arp_cache)
-        observations: list[DeviceObservation] = []
-        for result in results:
-            if not result.alive:
-                continue
-            hostname = await self._resolve_hostname(result.ip)
-            mac = arp.get(result.ip)
-            observations.append(
-                DeviceObservation(
-                    ip=result.ip,
-                    hostname=hostname,
-                    mac_address=mac,
-                    vendor=None,
-                    methods=result.methods,
-                    latency_ms=result.latency_ms,
-                )
+        alive_results = [result for result in results if result.alive]
+        resolver_semaphore = asyncio.Semaphore(64)
+
+        async def build_observation(result: _ProbeResult) -> DeviceObservation | None:
+            if cancel_event is not None and cancel_event.is_set():
+                return None
+            async with resolver_semaphore:
+                hostname = await self._resolve_hostname(result.ip)
+            if cancel_event is not None and cancel_event.is_set():
+                return None
+            return DeviceObservation(
+                ip=result.ip,
+                hostname=hostname,
+                mac_address=arp.get(result.ip),
+                vendor=None,
+                methods=result.methods,
+                latency_ms=result.latency_ms,
             )
+
+        built = await asyncio.gather(*(build_observation(result) for result in alive_results))
+        if cancel_event is not None and cancel_event.is_set():
+            return []
+        observations = [item for item in built if item is not None]
         observations.sort(key=lambda item: ipaddress.ip_address(item.ip))
         return observations
 
@@ -116,6 +126,7 @@ class HostDiscoveryService:
                 *command,
                 stdout=asyncio.subprocess.DEVNULL,
                 stderr=asyncio.subprocess.DEVNULL,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
             )
             return_code = await asyncio.wait_for(process.wait(), timeout=1.5)
         except (OSError, TimeoutError):
@@ -127,9 +138,12 @@ class HostDiscoveryService:
 
     async def _resolve_hostname(self, ip: str) -> str | None:
         try:
-            hostname, _, _ = await asyncio.to_thread(socket.gethostbyaddr, ip)
+            hostname, _, _ = await asyncio.wait_for(
+                asyncio.to_thread(socket.gethostbyaddr, ip),
+                timeout=1.25,
+            )
             return hostname
-        except (socket.herror, socket.gaierror, OSError):
+        except (socket.herror, socket.gaierror, OSError, TimeoutError):
             return None
 
     @staticmethod

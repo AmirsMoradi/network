@@ -10,10 +10,11 @@ from app.domain.models import ExposureFinding, PortResult, RiskLevel
 from app.security.vulnerability_intel import VulnerabilityIntelService
 from app.services.history import HistoryService
 from app.ui.components.tree import create_tree
+from app.ui.lifecycle import LifecycleFrame
 from app.ui.theme import UiTheme
 
 
-class ExposurePage(ctk.CTkFrame):
+class ExposurePage(LifecycleFrame):
     def __init__(
         self,
         master: ctk.CTkFrame,

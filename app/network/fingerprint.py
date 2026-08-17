@@ -76,7 +76,7 @@ class ServiceFingerprinter:
                 ),
                 timeout=self._timeout,
             )
-            request = f"HEAD / HTTP/1.0\r\nHost: {ip}\r\nUser-Agent: SurNet-Guardian/0.2\r\n\r\n"
+            request = f"HEAD / HTTP/1.0\r\nHost: {ip}\r\nUser-Agent: SurNet-Guardian/0.3\r\n\r\n"
             writer.write(request.encode("ascii"))
             await writer.drain()
             data = await asyncio.wait_for(reader.read(self._banner_limit), timeout=self._timeout)

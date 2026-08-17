@@ -12,10 +12,11 @@ from app.network.discovery import HostDiscoveryService
 from app.network.vendor import MacVendorResolver
 from app.services.history import HistoryService
 from app.ui.components.tree import create_tree
+from app.ui.lifecycle import LifecycleFrame
 from app.ui.theme import UiTheme
 
 
-class DiscoveryPage(ctk.CTkFrame):
+class DiscoveryPage(LifecycleFrame):
     def __init__(
         self,
         master: ctk.CTkFrame,
@@ -143,6 +144,9 @@ class DiscoveryPage(ctk.CTkFrame):
                     cancel_event=self._cancel_event,
                 )
             )
+            if self._cancel_event is not None and self._cancel_event.is_set():
+                self._queue.put(("cancelled", None))
+                return
             enriched = [
                 DeviceObservation(
                     ip=item.ip,
@@ -182,6 +186,9 @@ class DiscoveryPage(ctk.CTkFrame):
                 elif event == "result":
                     observations = payload  # type: ignore[assignment]
                     self._render(observations)
+                    self._finish()
+                elif event == "cancelled":
+                    self.status.configure(text="Discovery cancelled")
                     self._finish()
                 elif event == "oui":
                     changed = bool(payload)
@@ -225,3 +232,7 @@ class DiscoveryPage(ctk.CTkFrame):
         self._cancel_event = None
         self.scan_button.configure(state="normal")
         self.cancel_button.configure(state="disabled")
+    def on_destroy(self) -> None:
+        if self._cancel_event is not None:
+            self._cancel_event.set()
+

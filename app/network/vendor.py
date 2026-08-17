@@ -33,7 +33,7 @@ class MacVendorResolver:
             return False
         request = urllib.request.Request(
             self.IEEE_OUI_URL,
-            headers={"User-Agent": "SurNet-Guardian/0.2"},
+            headers={"User-Agent": "SurNet-Guardian/0.3"},
         )
         with urllib.request.urlopen(request, timeout=15) as response:  # noqa: S310
             payload = response.read()

@@ -92,3 +92,38 @@ class DeviceORM(Base):
     mac_address: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
     vendor: Mapped[str | None] = mapped_column(String(255), nullable=True)
     discovery_methods: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    trust_status: Mapped[str] = mapped_column(String(16), default="unknown", index=True)
+    custom_name: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    is_online: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    last_latency_ms: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    last_state_change_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    missed_cycles: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class EventORM(Base):
+    __tablename__ = "events"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    event_type: Mapped[str] = mapped_column(String(64), index=True)
+    severity: Mapped[str] = mapped_column(String(16), default="low", index=True)
+    title: Mapped[str] = mapped_column(String(255))
+    message: Mapped[str] = mapped_column(Text)
+    device_id: Mapped[int | None] = mapped_column(ForeignKey("devices.id", ondelete="SET NULL"), nullable=True, index=True)
+    ip: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+
+
+class AlertORM(Base):
+    __tablename__ = "alerts"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), index=True)
+    severity: Mapped[str] = mapped_column(String(16), index=True)
+    category: Mapped[str] = mapped_column(String(64), index=True)
+    title: Mapped[str] = mapped_column(String(255))
+    message: Mapped[str] = mapped_column(Text)
+    device_id: Mapped[int | None] = mapped_column(ForeignKey("devices.id", ondelete="SET NULL"), nullable=True, index=True)
+    ip: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    acknowledged: Mapped[bool] = mapped_column(Boolean, default=False, index=True)
+    acknowledged_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

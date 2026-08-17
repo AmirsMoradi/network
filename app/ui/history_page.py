@@ -1,7 +1,11 @@
 from __future__ import annotations
 
+from pathlib import Path
+from tkinter import filedialog, messagebox
+
 import customtkinter as ctk
 
+from app.services.exporter import ExportService
 from app.services.history import HistoryService
 from app.ui.components.tree import create_tree
 from app.ui.theme import UiTheme
@@ -12,6 +16,7 @@ class HistoryPage(ctk.CTkFrame):
         super().__init__(master, fg_color=UiTheme.BG)
         self._font = font_family
         self._history = history
+        self._exporter = ExportService()
         self._build()
         self.refresh()
 
@@ -24,10 +29,12 @@ class HistoryPage(ctk.CTkFrame):
             font=(self._font, 24, "bold"),
             text_color=UiTheme.TEXT,
         ).pack(side="left")
+        ctk.CTkButton(header, text="Export JSON", width=105, command=lambda: self._export_selected("json"), font=(self._font, 10, "bold")).pack(side="right", padx=(6, 0))
+        ctk.CTkButton(header, text="Export CSV", width=105, command=lambda: self._export_selected("csv"), font=(self._font, 10, "bold")).pack(side="right", padx=(6, 0))
         ctk.CTkButton(
             header,
             text="Refresh",
-            width=110,
+            width=90,
             command=self.refresh,
             font=(self._font, 10, "bold"),
         ).pack(side="right")
@@ -40,7 +47,8 @@ class HistoryPage(ctk.CTkFrame):
             headings=("ID", "Target", "Started", "Hosts", "Open Ports", "High / Critical"),
             font_family=self._font,
         )
-        self.tree.column("target", width=220)
+        self.tree.column("id", width=70)
+        self.tree.column("target", width=240)
         self.tree.column("date", width=210)
         self.tree.tag_configure("risk", foreground=UiTheme.DANGER)
         self.tree.pack(fill="both", expand=True, padx=10, pady=10)
@@ -69,3 +77,37 @@ class HistoryPage(ctk.CTkFrame):
                 ),
                 tags=("risk",) if risk_count else (),
             )
+
+    def _selected_scan_id(self) -> int | None:
+        selection = self.tree.selection()
+        if not selection:
+            return None
+        values = self.tree.item(selection[0], "values")
+        try:
+            return int(values[0])
+        except (IndexError, TypeError, ValueError):
+            return None
+
+    def _export_selected(self, kind: str) -> None:
+        scan_id = self._selected_scan_id()
+        if scan_id is None:
+            messagebox.showinfo("Select scan", "Select a saved scan first.")
+            return
+        scan = self._history.get_scan(scan_id)
+        if scan is None:
+            messagebox.showerror("Scan not found", f"Scan #{scan_id} was not found.")
+            return
+        extension = ".json" if kind == "json" else ".csv"
+        path = filedialog.asksaveasfilename(
+            title=f"Export scan #{scan_id}",
+            defaultextension=extension,
+            filetypes=[(kind.upper(), f"*{extension}")],
+            initialfile=f"surnet-scan-{scan_id}{extension}",
+        )
+        if not path:
+            return
+        if kind == "json":
+            self._exporter.export_json(scan, Path(path))
+        else:
+            self._exporter.export_csv(scan, Path(path))
+        messagebox.showinfo("Export complete", f"Saved to:\n{path}")

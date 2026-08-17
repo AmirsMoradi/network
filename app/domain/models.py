@@ -12,6 +12,12 @@ class RiskLevel(StrEnum):
     CRITICAL = "critical"
 
 
+class DeviceTrust(StrEnum):
+    UNKNOWN = "unknown"
+    TRUSTED = "trusted"
+    BLOCKED = "blocked"
+
+
 @dataclass(frozen=True, slots=True)
 class ServiceFingerprint:
     product: str | None = None
@@ -66,6 +72,76 @@ class DeviceObservation:
     vendor: str | None
     methods: tuple[str, ...]
     latency_ms: float | None
+
+
+@dataclass(frozen=True, slots=True)
+class DeviceRecord:
+    id: int
+    identity_key: str
+    first_seen_at: datetime
+    last_seen_at: datetime
+    ip: str
+    hostname: str | None
+    mac_address: str | None
+    vendor: str | None
+    discovery_methods: tuple[str, ...]
+    trust_status: DeviceTrust
+    custom_name: str | None
+    notes: str | None
+    is_online: bool
+    last_latency_ms: float | None
+    last_state_change_at: datetime | None
+
+    @property
+    def display_name(self) -> str:
+        return self.custom_name or self.hostname or self.ip
+
+
+@dataclass(frozen=True, slots=True)
+class EventRecord:
+    id: int
+    created_at: datetime
+    event_type: str
+    severity: RiskLevel
+    title: str
+    message: str
+    device_id: int | None
+    device_name: str | None
+    ip: str | None
+
+
+@dataclass(frozen=True, slots=True)
+class AlertRecord:
+    id: int
+    created_at: datetime
+    severity: RiskLevel
+    category: str
+    title: str
+    message: str
+    device_id: int | None
+    device_name: str | None
+    ip: str | None
+    acknowledged: bool
+    acknowledged_at: datetime | None
+
+
+@dataclass(frozen=True, slots=True)
+class MonitorCycleSummary:
+    discovered: int
+    new_devices: int
+    came_online: int
+    went_offline: int
+    alerts_created: int
+    completed_at: datetime
+
+
+@dataclass(frozen=True, slots=True)
+class PingResult:
+    host: str
+    transmitted: int
+    received: int
+    packet_loss_percent: float
+    average_latency_ms: float | None
 
 
 @dataclass(frozen=True, slots=True)

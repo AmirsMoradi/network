@@ -10,10 +10,11 @@ from app.domain.models import ListenerRecord, RiskLevel
 from app.network.local_listeners import LocalListenerInspector
 from app.security.windows_firewall import WindowsFirewallService
 from app.ui.components.tree import create_tree
+from app.ui.lifecycle import LifecycleFrame
 from app.ui.theme import UiTheme
 
 
-class ListenersPage(ctk.CTkFrame):
+class ListenersPage(LifecycleFrame):
     def __init__(
         self,
         master: ctk.CTkFrame,
@@ -30,7 +31,6 @@ class ListenersPage(ctk.CTkFrame):
         self._records: dict[str, ListenerRecord] = {}
         self._build()
         self.after(100, self._drain_queue)
-        self.refresh()
 
     def _build(self) -> None:
         header = ctk.CTkFrame(self, fg_color="transparent")

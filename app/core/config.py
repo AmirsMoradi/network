@@ -5,10 +5,11 @@ from pathlib import Path
 
 
 APP_NAME = "SurNet Guardian"
-APP_VERSION = "0.2.0"
+APP_VERSION = "0.3.0"
 APP_DIR = Path.home() / ".surnet_guardian"
 DB_PATH = APP_DIR / "surnet.db"
 LOG_PATH = APP_DIR / "surnet.log"
+SETTINGS_PATH = APP_DIR / "settings.json"
 
 
 @dataclass(frozen=True, slots=True)

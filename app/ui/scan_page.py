@@ -13,10 +13,11 @@ from app.network.ports import parse_ports
 from app.network.scanner import AsyncTcpScanner, ScanCancelled
 from app.services.history import HistoryService
 from app.ui.components.tree import create_tree
+from app.ui.lifecycle import LifecycleFrame
 from app.ui.theme import UiTheme
 
 
-class ScanPage(ctk.CTkFrame):
+class ScanPage(LifecycleFrame):
     def __init__(
         self,
         master: ctk.CTkFrame,
@@ -281,3 +282,7 @@ class ScanPage(ctk.CTkFrame):
         self._cancel_event = None
         self.scan_button.configure(state="normal", text="Start Assessment")
         self.cancel_button.configure(state="disabled")
+    def on_destroy(self) -> None:
+        if self._cancel_event is not None:
+            self._cancel_event.set()
+
