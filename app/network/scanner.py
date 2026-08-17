@@ -9,6 +9,9 @@ from datetime import datetime, timezone
 
 from app.core.config import DEFAULT_SCAN_CONFIG, ScanConfig
 from app.domain.models import HostResult, PortResult, ScanResult
+from app.network.fingerprint import ServiceFingerprinter
+from app.network.targets import expand_target
+from app.security.exposure import ExposureAnalyzer
 
 ProgressCallback = Callable[[int, int], None]
 
@@ -18,8 +21,15 @@ class ScanCancelled(RuntimeError):
 
 
 class AsyncTcpScanner:
-    def __init__(self, config: ScanConfig = DEFAULT_SCAN_CONFIG) -> None:
+    def __init__(
+        self,
+        config: ScanConfig = DEFAULT_SCAN_CONFIG,
+        fingerprinter: ServiceFingerprinter | None = None,
+        exposure_analyzer: ExposureAnalyzer | None = None,
+    ) -> None:
         self._config = config
+        self._fingerprinter = fingerprinter or ServiceFingerprinter()
+        self._exposure = exposure_analyzer or ExposureAnalyzer()
 
     async def scan(
         self,
@@ -27,8 +37,10 @@ class AsyncTcpScanner:
         ports: Iterable[int],
         progress: ProgressCallback | None = None,
         cancel_event: threading.Event | None = None,
+        *,
+        fingerprint_services: bool = True,
     ) -> ScanResult:
-        hosts = self._expand_target(target)
+        hosts = expand_target(target, max_hosts=self._config.max_hosts)
         port_list = tuple(ports)
         if not port_list:
             raise ValueError("No ports selected")
@@ -71,11 +83,29 @@ class AsyncTcpScanner:
                     ip, port = item
                     opened, latency = await self._probe(ip, port)
                     if opened:
+                        service = self._service_name(port)
+                        if fingerprint_services:
+                            fingerprint = await self._fingerprinter.fingerprint(ip, port, service)
+                        else:
+                            from app.domain.models import ServiceFingerprint
+
+                            fingerprint = ServiceFingerprint()
+                        findings = self._exposure.analyze_port(
+                            ip=ip,
+                            port=port,
+                            service=service,
+                            fingerprint=fingerprint,
+                        )
+                        risk_score, risk_level = self._exposure.summarize(findings)
                         results[ip].ports.append(
                             PortResult(
                                 port=port,
-                                service=self._service_name(port),
+                                service=service,
                                 latency_ms=latency,
+                                fingerprint=fingerprint,
+                                risk_score=risk_score,
+                                risk_level=risk_level,
+                                findings=findings,
                             )
                         )
                     completed += 1
@@ -127,26 +157,6 @@ class AsyncTcpScanner:
             host.hostname = hostname
         except (socket.herror, socket.gaierror, OSError):
             host.hostname = None
-
-    def _expand_target(self, target: str) -> tuple[str, ...]:
-        text = target.strip()
-        if not text:
-            raise ValueError("Target is required")
-
-        try:
-            if "/" in text:
-                network = ipaddress.ip_network(text, strict=False)
-                addresses = tuple(str(ip) for ip in network.hosts())
-            else:
-                addresses = (str(ipaddress.ip_address(text)),)
-        except ValueError as exc:
-            raise ValueError("Target must be a valid IPv4/IPv6 address or CIDR") from exc
-
-        if len(addresses) > self._config.max_hosts:
-            raise ValueError(
-                f"Target expands to {len(addresses)} hosts; limit is {self._config.max_hosts}"
-            )
-        return addresses
 
     @staticmethod
     def _service_name(port: int) -> str:

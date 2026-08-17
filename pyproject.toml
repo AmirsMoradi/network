@@ -1,13 +1,14 @@
 [project]
 name = "surnet-guardian"
-version = "0.1.0"
-description = "Desktop network discovery, local listener audit and Windows firewall control"
+version = "0.2.0"
+description = "Desktop network discovery, service fingerprinting, exposure analysis, local listener audit and Windows firewall control"
 requires-python = ">=3.12,<3.13"
 dependencies = [
   "customtkinter>=5.2,<6",
   "psutil>=6,<8",
   "SQLAlchemy>=2.0,<3",
   "pydantic>=2.8,<3",
+  "cryptography>=43,<47",
 ]
 
 [project.optional-dependencies]

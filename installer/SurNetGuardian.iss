@@ -1,5 +1,5 @@
 #define MyAppName "SurNet Guardian"
-#define MyAppVersion "0.1.0"
+#define MyAppVersion "0.2.0"
 #define MyAppExeName "SurNetGuardian.exe"
 
 [Setup]

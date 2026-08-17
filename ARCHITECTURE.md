@@ -1,40 +1,30 @@
-# SurNet Guardian Architecture
+# SurNet Guardian Architecture — v0.2.0
 
-## Boundaries
+## Design goals
 
-- `network/`: authorized discovery, TCP connect scanning and local listener inspection.
-- `security/`: heuristic scoring, Authenticode/Defender correlation and Windows Firewall actions.
-- `database/`: persistence only; no UI or scanning logic.
-- `services/`: application workflows such as history and export.
-- `ui/`: CustomTkinter presentation and worker-thread bridges.
+- Windows-first desktop administration with Python 3.12
+- Non-blocking CustomTkinter UI
+- Bounded network concurrency and explicit cancellation
+- Evidence-first security findings
+- Persistent asset inventory and temporal scan comparison
+- Defensive vulnerability enrichment without exploit execution
 
-## Performance model
+## Layers
 
-The TCP scanner uses a bounded `asyncio.Queue` and a fixed worker count. It does not create one
-asyncio Task per host/port pair. Memory is therefore bounded primarily by the host-result map and
-queue size rather than by the number of requested socket checks.
+- `app/network/targets.py`: target/CIDR validation and bounded expansion
+- `app/network/discovery.py`: ICMP/TCP host discovery + Windows ARP enrichment
+- `app/network/vendor.py`: cached IEEE OUI lookup
+- `app/network/scanner.py`: bounded TCP connect assessment engine
+- `app/network/fingerprint.py`: minimal protocol-aware service/TLS fingerprinting
+- `app/security/exposure.py`: deterministic exposure rules with evidence/recommendations
+- `app/security/vulnerability_intel.py`: NVD candidate CVEs + CISA KEV correlation
+- `app/security/*`: local process risk, Defender, signatures and firewall control
+- `app/database/*`: SQLAlchemy persistence and additive v0.1 -> v0.2 schema upgrades
+- `app/services/history.py`: scan persistence, device inventory, reconstruction and diff
+- `app/ui/*`: CustomTkinter presentation pages; no network logic in UI widgets
 
-`ScanConfig.max_operations` protects the desktop application from accidental scans that would
-otherwise require an unreasonable number of connection attempts.
+## Safety boundary
 
-## Risk semantics
-
-Risk is explainable and evidence-based. Inputs currently include:
-
-- listener bind scope (`0.0.0.0` / `::` exposure)
-- high-attention ports
-- user-writable executable locations
-- Authenticode status
-- suspicious system-process-name/path mismatch
-- correlation against Microsoft Defender detection resources
-
-`CRITICAL` means immediate review is warranted. It is not, by itself, a malware verdict.
-
-## Firewall semantics
-
-"Allow" and "Block" create inbound Windows Firewall rules after explicit user confirmation.
-Rules are namespaced under `SurNet Guardian`. Opposing SurNet rules for the same protocol/port are
-removed before the new rule is created so a stale Block rule cannot silently defeat an Allow rule.
-
-Opening a firewall port does not create a listening service. Blocking a firewall port does not
-terminate the process that owns the socket.
+The product does not contain stealth/evasion, IDS/EDR bypass, exploit chains, credential attacks,
+payload execution, persistence or anti-forensics. Network checks use normal connections and preserve
+observable security telemetry. This keeps findings reproducible and suitable for defensive validation.

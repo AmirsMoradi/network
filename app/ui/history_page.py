@@ -36,10 +36,13 @@ class HistoryPage(ctk.CTkFrame):
         frame.pack(fill="both", expand=True, padx=24, pady=(0, 24))
         self.tree = create_tree(
             frame,
-            columns=("id", "target", "date", "hosts", "ports"),
-            headings=("ID", "Target", "Started", "Hosts", "Open Ports"),
+            columns=("id", "target", "date", "hosts", "ports", "risk"),
+            headings=("ID", "Target", "Started", "Hosts", "Open Ports", "High / Critical"),
             font_family=self._font,
         )
+        self.tree.column("target", width=220)
+        self.tree.column("date", width=210)
+        self.tree.tag_configure("risk", foreground=UiTheme.DANGER)
         self.tree.pack(fill="both", expand=True, padx=10, pady=10)
 
     def refresh(self) -> None:
@@ -47,8 +50,22 @@ class HistoryPage(ctk.CTkFrame):
             self.tree.delete(item)
         for scan in self._history.list_recent():
             open_ports = sum(len(host.ports) for host in scan.hosts)
+            risk_count = sum(
+                1
+                for host in scan.hosts
+                for port in host.ports
+                if (port.risk_level or "low") in {"high", "critical"}
+            )
             self.tree.insert(
                 "",
                 "end",
-                values=(scan.id, scan.target, scan.started_at, len(scan.hosts), open_ports),
+                values=(
+                    scan.id,
+                    scan.target,
+                    scan.started_at,
+                    len(scan.hosts),
+                    open_ports,
+                    risk_count,
+                ),
+                tags=("risk",) if risk_count else (),
             )
